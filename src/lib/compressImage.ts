@@ -12,7 +12,7 @@ export async function compressImage(
   const options = {
     maxSizeMB: preset.maxSizeMB,
     maxWidthOrHeight: 4096,
-    useWebWorker: true,
+    useWebWorker: false,
     initialQuality: preset.quality,
     onProgress: (p: number) => {
       onProgress(Math.min(p, 100));

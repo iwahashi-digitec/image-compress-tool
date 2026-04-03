@@ -9,22 +9,45 @@ export async function convertToWebp(
   const preset = webpPresets[level];
   onProgress(10);
 
-  const bitmap = await createImageBitmap(source);
-  onProgress(30);
+  const url = URL.createObjectURL(source);
 
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas context not available');
+  return new Promise((resolve, reject) => {
+    const img = new Image();
 
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  onProgress(50);
+    img.onload = () => {
+      onProgress(30);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error('Canvas context not available'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      onProgress(50);
 
-  const webpBlob = await canvas.convertToBlob({
-    type: 'image/webp',
-    quality: preset.quality,
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('WebP変換に失敗しました'));
+            return;
+          }
+          onProgress(100);
+          resolve(blob);
+        },
+        'image/webp',
+        preset.quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('画像の読み込みに失敗しました'));
+    };
+
+    img.src = url;
   });
-  onProgress(100);
-
-  return webpBlob;
 }

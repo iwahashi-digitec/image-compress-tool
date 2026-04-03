@@ -10,7 +10,7 @@ export async function compressToTargetSize(
   const options = {
     maxSizeMB: targetSizeMB,
     maxWidthOrHeight: 4096,
-    useWebWorker: true,
+    useWebWorker: false,
     initialQuality: 0.85,
     onProgress: (p: number) => {
       onProgress(Math.min(p, 100));
