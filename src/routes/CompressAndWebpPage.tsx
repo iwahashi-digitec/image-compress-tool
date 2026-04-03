@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { Phase, UploadedFile, ProcessingFile, ProcessedFile, QualityLevel } from '../types';
 import { generateId, changeExtension } from '../lib/fileUtils';
 import { compressToTargetSize } from '../lib/compressToTargetSize';
-import { convertToWebp } from '../lib/convertToWebp';
+import { convertToWebp, checkWebpSupport } from '../lib/convertToWebp';
 import { webpPresets } from '../constants/qualityPresets';
 import { usePersistedQuality, usePersistedTargetSize } from '../hooks/usePersistedSettings';
 
@@ -13,6 +13,7 @@ import QualitySelector from '../components/settings/QualitySelector';
 import TargetSizeInput from '../components/settings/TargetSizeInput';
 import ProcessingView from '../components/processing/ProcessingView';
 import ResultsView from '../components/results/ResultsView';
+import WebpUnsupportedDialog from '../components/WebpUnsupportedDialog';
 
 const qualityOptions = Object.entries(webpPresets).map(([key, val]) => ({
   key: key as QualityLevel,
@@ -27,12 +28,10 @@ export default function CompressAndWebpPage() {
   const [targetSize, setTargetSize] = usePersistedTargetSize();
   const [processing, setProcessing] = useState<ProcessingFile[]>([]);
   const [results, setResults] = useState<ProcessedFile[]>([]);
+  const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleFilesSelected = useCallback((newFiles: File[]) => {
-    const uploaded = newFiles.map((f) => ({
-      id: generateId(),
-      file: f,
-    }));
+    const uploaded = newFiles.map((f) => ({ id: generateId(), file: f }));
     setFiles((prev) => [...prev, ...uploaded]);
     setPhase('configure');
   }, []);
@@ -46,14 +45,12 @@ export default function CompressAndWebpPage() {
   }, []);
 
   const handleAdd = useCallback((newFiles: File[]) => {
-    const uploaded = newFiles.map((f) => ({
-      id: generateId(),
-      file: f,
-    }));
+    const uploaded = newFiles.map((f) => ({ id: generateId(), file: f }));
     setFiles((prev) => [...prev, ...uploaded]);
   }, []);
 
-  const handleProcess = useCallback(async () => {
+  const runProcess = useCallback(async (skipWebp: boolean) => {
+    setShowUnsupportedDialog(false);
     setPhase('processing');
     const initial: ProcessingFile[] = files.map((f) => ({
       id: f.id,
@@ -65,13 +62,9 @@ export default function CompressAndWebpPage() {
 
     const completed: ProcessedFile[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
+    for (const file of files) {
       setProcessing((prev) =>
-        prev.map((p) =>
-          p.id === file.id ? { ...p, status: 'processing', currentStep: 1 } : p
-        )
+        prev.map((p) => p.id === file.id ? { ...p, status: 'processing', currentStep: 1 } : p)
       );
 
       try {
@@ -82,7 +75,9 @@ export default function CompressAndWebpPage() {
           (progress) => {
             setProcessing((prev) =>
               prev.map((p) =>
-                p.id === file.id ? { ...p, progress: progress * 0.5 } : p
+                p.id === file.id
+                  ? { ...p, progress: skipWebp ? progress : progress * 0.5 }
+                  : p
               )
             );
           }
@@ -90,36 +85,49 @@ export default function CompressAndWebpPage() {
 
         const intermediateSize = compressedBlob.size;
 
-        // STEP 2: Convert to WebP
-        setProcessing((prev) =>
-          prev.map((p) =>
-            p.id === file.id ? { ...p, currentStep: 2, progress: 50 } : p
-          )
-        );
-
-        const webpBlob = await convertToWebp(compressedBlob, quality, (progress) => {
+        if (skipWebp) {
+          // WebP非対応: 圧縮JPEGをそのまま返す
+          setProcessing((prev) =>
+            prev.map((p) => p.id === file.id ? { ...p, status: 'done', progress: 100 } : p)
+          );
+          completed.push({
+            id: file.id,
+            originalFile: file.file,
+            resultBlob: compressedBlob,
+            resultFilename: file.file.name,
+            originalSize: file.file.size,
+            resultSize: compressedBlob.size,
+          });
+        } else {
+          // STEP 2: Convert to WebP
           setProcessing((prev) =>
             prev.map((p) =>
-              p.id === file.id ? { ...p, progress: 50 + progress * 0.5 } : p
+              p.id === file.id ? { ...p, currentStep: 2, progress: 50 } : p
             )
           );
-        });
 
-        setProcessing((prev) =>
-          prev.map((p) =>
-            p.id === file.id ? { ...p, status: 'done', progress: 100 } : p
-          )
-        );
+          const webpBlob = await convertToWebp(compressedBlob, quality, (progress) => {
+            setProcessing((prev) =>
+              prev.map((p) =>
+                p.id === file.id ? { ...p, progress: 50 + progress * 0.5 } : p
+              )
+            );
+          });
 
-        completed.push({
-          id: file.id,
-          originalFile: file.file,
-          resultBlob: webpBlob,
-          resultFilename: changeExtension(file.file.name, 'webp'),
-          originalSize: file.file.size,
-          resultSize: webpBlob.size,
-          intermediateSize,
-        });
+          setProcessing((prev) =>
+            prev.map((p) => p.id === file.id ? { ...p, status: 'done', progress: 100 } : p)
+          );
+
+          completed.push({
+            id: file.id,
+            originalFile: file.file,
+            resultBlob: webpBlob,
+            resultFilename: changeExtension(file.file.name, 'webp'),
+            originalSize: file.file.size,
+            resultSize: webpBlob.size,
+            intermediateSize,
+          });
+        }
       } catch (err) {
         setProcessing((prev) =>
           prev.map((p) =>
@@ -134,6 +142,15 @@ export default function CompressAndWebpPage() {
     setResults(completed);
     setTimeout(() => setPhase('complete'), 600);
   }, [files, quality, targetSize]);
+
+  const handleProcessClick = useCallback(async () => {
+    const supported = await checkWebpSupport();
+    if (!supported) {
+      setShowUnsupportedDialog(true);
+    } else {
+      runProcess(false);
+    }
+  }, [runProcess]);
 
   const handleReset = useCallback(() => {
     setFiles([]);
@@ -153,23 +170,11 @@ export default function CompressAndWebpPage() {
 
         {phase === 'configure' && (
           <div className="space-y-6">
-            <FileList
-              files={files}
-              mode="compress-and-webp"
-              onRemove={handleRemove}
-              onAdd={handleAdd}
-            />
-
+            <FileList files={files} mode="compress-and-webp" onRemove={handleRemove} onAdd={handleAdd} />
             <TargetSizeInput value={targetSize} onChange={setTargetSize} />
-
-            <QualitySelector
-              options={qualityOptions}
-              value={quality}
-              onChange={setQuality}
-            />
-
+            <QualitySelector options={qualityOptions} value={quality} onChange={setQuality} />
             <button
-              onClick={handleProcess}
+              onClick={handleProcessClick}
               className="w-full py-3 px-6 bg-primary-600 text-white rounded-xl
                 font-medium hover:bg-primary-700 transition-colors text-base"
             >
@@ -178,12 +183,14 @@ export default function CompressAndWebpPage() {
           </div>
         )}
 
-        {phase === 'processing' && (
-          <ProcessingView files={processing} showSteps />
-        )}
+        {phase === 'processing' && <ProcessingView files={processing} showSteps />}
+        {phase === 'complete' && <ResultsView files={results} onReset={handleReset} />}
 
-        {phase === 'complete' && (
-          <ResultsView files={results} onReset={handleReset} />
+        {showUnsupportedDialog && (
+          <WebpUnsupportedDialog
+            onConfirm={() => runProcess(true)}
+            onCancel={() => setShowUnsupportedDialog(false)}
+          />
         )}
       </div>
     </PageLayout>

@@ -1,6 +1,21 @@
 import type { QualityLevel } from '../types';
 import { webpPresets } from '../constants/qualityPresets';
 
+export async function checkWebpSupport(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    canvas.toBlob(
+      (blob) => {
+        resolve(blob !== null && blob.type === 'image/webp');
+      },
+      'image/webp',
+      0.5
+    );
+  });
+}
+
 export async function convertToWebp(
   source: File | Blob,
   level: QualityLevel,

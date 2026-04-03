@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import type { Phase, UploadedFile, ProcessingFile, ProcessedFile, QualityLevel } from '../types';
 import { generateId, changeExtension } from '../lib/fileUtils';
-import { convertToWebp } from '../lib/convertToWebp';
+import { convertToWebp, checkWebpSupport } from '../lib/convertToWebp';
+import { compressImage } from '../lib/compressImage';
 import { webpPresets } from '../constants/qualityPresets';
 import { usePersistedQuality } from '../hooks/usePersistedSettings';
 
@@ -11,6 +12,7 @@ import FileList from '../components/file-upload/FileList';
 import QualitySelector from '../components/settings/QualitySelector';
 import ProcessingView from '../components/processing/ProcessingView';
 import ResultsView from '../components/results/ResultsView';
+import WebpUnsupportedDialog from '../components/WebpUnsupportedDialog';
 
 const qualityOptions = Object.entries(webpPresets).map(([key, val]) => ({
   key: key as QualityLevel,
@@ -24,12 +26,10 @@ export default function WebpConvertPage() {
   const [quality, setQuality] = usePersistedQuality('webp-convert');
   const [processing, setProcessing] = useState<ProcessingFile[]>([]);
   const [results, setResults] = useState<ProcessedFile[]>([]);
+  const [showUnsupportedDialog, setShowUnsupportedDialog] = useState(false);
 
   const handleFilesSelected = useCallback((newFiles: File[]) => {
-    const uploaded = newFiles.map((f) => ({
-      id: generateId(),
-      file: f,
-    }));
+    const uploaded = newFiles.map((f) => ({ id: generateId(), file: f }));
     setFiles((prev) => [...prev, ...uploaded]);
     setPhase('configure');
   }, []);
@@ -43,14 +43,12 @@ export default function WebpConvertPage() {
   }, []);
 
   const handleAdd = useCallback((newFiles: File[]) => {
-    const uploaded = newFiles.map((f) => ({
-      id: generateId(),
-      file: f,
-    }));
+    const uploaded = newFiles.map((f) => ({ id: generateId(), file: f }));
     setFiles((prev) => [...prev, ...uploaded]);
   }, []);
 
-  const handleProcess = useCallback(async () => {
+  const runProcess = useCallback(async (useJpeg: boolean) => {
+    setShowUnsupportedDialog(false);
     setPhase('processing');
     const initial: ProcessingFile[] = files.map((f) => ({
       id: f.id,
@@ -62,35 +60,40 @@ export default function WebpConvertPage() {
 
     const completed: ProcessedFile[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-
+    for (const file of files) {
       setProcessing((prev) =>
-        prev.map((p) =>
-          p.id === file.id ? { ...p, status: 'processing' } : p
-        )
+        prev.map((p) => p.id === file.id ? { ...p, status: 'processing' } : p)
       );
 
       try {
-        const resultBlob = await convertToWebp(file.file, quality, (progress) => {
-          setProcessing((prev) =>
-            prev.map((p) =>
-              p.id === file.id ? { ...p, progress } : p
-            )
-          );
-        });
+        let resultBlob: Blob;
+        let resultFilename: string;
+
+        if (useJpeg) {
+          resultBlob = await compressImage(file.file, quality, (progress) => {
+            setProcessing((prev) =>
+              prev.map((p) => p.id === file.id ? { ...p, progress } : p)
+            );
+          });
+          resultFilename = file.file.name;
+        } else {
+          resultBlob = await convertToWebp(file.file, quality, (progress) => {
+            setProcessing((prev) =>
+              prev.map((p) => p.id === file.id ? { ...p, progress } : p)
+            );
+          });
+          resultFilename = changeExtension(file.file.name, 'webp');
+        }
 
         setProcessing((prev) =>
-          prev.map((p) =>
-            p.id === file.id ? { ...p, status: 'done', progress: 100 } : p
-          )
+          prev.map((p) => p.id === file.id ? { ...p, status: 'done', progress: 100 } : p)
         );
 
         completed.push({
           id: file.id,
           originalFile: file.file,
           resultBlob,
-          resultFilename: changeExtension(file.file.name, 'webp'),
+          resultFilename,
           originalSize: file.file.size,
           resultSize: resultBlob.size,
         });
@@ -108,6 +111,15 @@ export default function WebpConvertPage() {
     setResults(completed);
     setTimeout(() => setPhase('complete'), 600);
   }, [files, quality]);
+
+  const handleProcessClick = useCallback(async () => {
+    const supported = await checkWebpSupport();
+    if (!supported) {
+      setShowUnsupportedDialog(true);
+    } else {
+      runProcess(false);
+    }
+  }, [runProcess]);
 
   const handleReset = useCallback(() => {
     setFiles([]);
@@ -127,21 +139,10 @@ export default function WebpConvertPage() {
 
         {phase === 'configure' && (
           <div className="space-y-6">
-            <FileList
-              files={files}
-              mode="webp-convert"
-              onRemove={handleRemove}
-              onAdd={handleAdd}
-            />
-
-            <QualitySelector
-              options={qualityOptions}
-              value={quality}
-              onChange={setQuality}
-            />
-
+            <FileList files={files} mode="webp-convert" onRemove={handleRemove} onAdd={handleAdd} />
+            <QualitySelector options={qualityOptions} value={quality} onChange={setQuality} />
             <button
-              onClick={handleProcess}
+              onClick={handleProcessClick}
               className="w-full py-3 px-6 bg-primary-600 text-white rounded-xl
                 font-medium hover:bg-primary-700 transition-colors text-base"
             >
@@ -151,9 +152,13 @@ export default function WebpConvertPage() {
         )}
 
         {phase === 'processing' && <ProcessingView files={processing} />}
+        {phase === 'complete' && <ResultsView files={results} onReset={handleReset} />}
 
-        {phase === 'complete' && (
-          <ResultsView files={results} onReset={handleReset} />
+        {showUnsupportedDialog && (
+          <WebpUnsupportedDialog
+            onConfirm={() => runProcess(true)}
+            onCancel={() => setShowUnsupportedDialog(false)}
+          />
         )}
       </div>
     </PageLayout>
