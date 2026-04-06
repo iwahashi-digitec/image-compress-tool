@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileDown, ImageIcon, Layers } from 'lucide-react';
+import { FileDown, ImageIcon, Layers, Crop } from 'lucide-react';
 import PageLayout from '../components/layout/PageLayout';
 
 const features = [
@@ -29,6 +29,15 @@ const features = [
     color: 'text-purple-500',
     bg: 'bg-purple-50',
     border: 'hover:border-purple-300',
+  },
+  {
+    to: '/resize',
+    icon: Crop,
+    title: 'リサイズ & トリミング',
+    description: '画像をピクセル指定でリサイズ、またはトリミングします',
+    color: 'text-orange-500',
+    bg: 'bg-orange-50',
+    border: 'hover:border-orange-300',
   },
 ];
 

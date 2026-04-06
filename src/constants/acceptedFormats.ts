@@ -14,16 +14,23 @@ export const acceptedMimeTypes: Record<FeatureMode, string[]> = {
   'compress-and-webp': [
     'image/jpeg',
   ],
+  resize: [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ],
 };
 
 export const acceptedExtensions: Record<FeatureMode, string> = {
   compress: '.jpg,.jpeg,.png,.webp,.pdf',
   'webp-convert': '.jpg,.jpeg,.png',
   'compress-and-webp': '.jpg,.jpeg',
+  resize: '.jpg,.jpeg,.png,.webp',
 };
 
 export const formatLabels: Record<FeatureMode, string> = {
   compress: 'JPEG / PNG / WebP / PDF',
   'webp-convert': 'JPEG / PNG',
   'compress-and-webp': 'JPEG',
+  resize: 'JPEG / PNG / WebP',
 };

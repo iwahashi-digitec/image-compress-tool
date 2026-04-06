@@ -1,4 +1,4 @@
-export type FeatureMode = 'compress' | 'webp-convert' | 'compress-and-webp';
+export type FeatureMode = 'compress' | 'webp-convert' | 'compress-and-webp' | 'resize';
 
 export type QualityLevel = 'high-compression' | 'recommended' | 'low-compression';
 
