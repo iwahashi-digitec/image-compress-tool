@@ -46,9 +46,21 @@ export async function processImage(
       srcH = Math.round((c.height / 100) * img.naturalHeight);
     }
 
-    // 出力サイズ（指定なければトリミングそのままのサイズ）
-    const dstW = options.outputSize?.width ?? srcW;
-    const dstH = options.outputSize?.height ?? srcH;
+    // 出力サイズ（アスペクト比を保ったまま outputSize に収める。拡大しない）
+    let dstW: number;
+    let dstH: number;
+    if (options.outputSize) {
+      const scale = Math.min(
+        1,
+        options.outputSize.width / srcW,
+        options.outputSize.height / srcH,
+      );
+      dstW = Math.round(srcW * scale);
+      dstH = Math.round(srcH * scale);
+    } else {
+      dstW = srcW;
+      dstH = srcH;
+    }
 
     const canvas = document.createElement('canvas');
     canvas.width = dstW;
@@ -67,7 +79,7 @@ export async function processImage(
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error('画像の変換に失敗しました'))),
         mimeType,
-        0.92
+        1.0
       );
     });
 

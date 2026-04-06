@@ -48,6 +48,31 @@ export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount
     setNaturalSize(null);
   }, [imageUrl]);
 
+  // aspect が変わったとき（画像読み込み済みなら）枠を再計算
+  useEffect(() => {
+    if (!naturalSize) return;
+    const { w, h } = naturalSize;
+    if (aspect) {
+      const imageAspect = w / h;
+      let cropW: number;
+      let cropH: number;
+      if (aspect > imageAspect) {
+        cropW = 90;
+        cropH = (w * 0.9) / aspect / h * 100;
+      } else {
+        cropH = 90;
+        cropW = (h * 0.9) * aspect / w * 100;
+      }
+      const x = (100 - cropW) / 2;
+      const y = (100 - cropH) / 2;
+      onChange({ unit: '%', x, y, width: cropW, height: cropH });
+    } else {
+      onChange({ unit: '%', x: 5, y: 5, width: 90, height: 90 });
+    }
+  // naturalSize は参照比較なので w/h を依存に入れる
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aspect, naturalSize?.w, naturalSize?.h]);
+
   // 現在の枠が実際に何px分をキャプチャしているか（元画像上のサイズ）
   const captureW = naturalSize ? Math.round((crop.width / 100) * naturalSize.w) : null;
   const captureH = naturalSize ? Math.round((crop.height / 100) * naturalSize.h) : null;
@@ -58,7 +83,7 @@ export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount
       <div className="overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-3 flex justify-center">
         <ReactCrop
           crop={crop}
-          onChange={onChange}
+          onChange={(_px, pct) => onChange(pct)}
           aspect={aspect}
           minWidth={1}
           minHeight={1}
@@ -91,10 +116,6 @@ export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount
 
 /** Crop（%単位）を CropPercent 形式に変換するヘルパー */
 export function toCropPercent(crop: Crop): CropPercent {
-  return {
-    x: crop.unit === '%' ? crop.x : 0,
-    y: crop.unit === '%' ? crop.y : 0,
-    width: crop.unit === '%' ? crop.width : 100,
-    height: crop.unit === '%' ? crop.height : 100,
-  };
+  if (crop.unit !== '%') throw new Error('crop は % 単位である必要があります');
+  return { x: crop.x, y: crop.y, width: crop.width, height: crop.height };
 }

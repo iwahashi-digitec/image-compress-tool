@@ -75,11 +75,6 @@ export default function ResizePage() {
     };
   }, []);
 
-  // アスペクト比が変わったらクロップをリセット
-  useEffect(() => {
-    setCrop({ unit: '%', x: 5, y: 5, width: 90, height: 90 });
-  }, [aspect]);
-
   // ── 処理実行 ──────────────────────────────────────────────
   const handleProcess = useCallback(async () => {
     setPhase('processing');
