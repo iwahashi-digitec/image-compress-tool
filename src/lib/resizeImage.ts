@@ -15,11 +15,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Canvas API を使って画像をトリミングする。
+ * Canvas API を使って画像をトリミングし、必要に応じて指定サイズにリサイズする。
+ * outputSize を指定すると、トリミング後に正確にそのサイズに変換される。
  */
 export async function processImage(
   source: File | Blob,
-  options: { crop?: CropPercent },
+  options: {
+    crop?: CropPercent;
+    outputSize?: { width: number; height: number };
+  },
   onProgress: (progress: number) => void
 ): Promise<Blob> {
   const url = URL.createObjectURL(source);
@@ -28,6 +32,7 @@ export async function processImage(
     const img = await loadImage(url);
     onProgress(40);
 
+    // トリミング範囲を決定
     let srcX = 0;
     let srcY = 0;
     let srcW = img.naturalWidth;
@@ -41,13 +46,17 @@ export async function processImage(
       srcH = Math.round((c.height / 100) * img.naturalHeight);
     }
 
+    // 出力サイズ（指定なければトリミングそのままのサイズ）
+    const dstW = options.outputSize?.width ?? srcW;
+    const dstH = options.outputSize?.height ?? srcH;
+
     const canvas = document.createElement('canvas');
-    canvas.width = srcW;
-    canvas.height = srcH;
+    canvas.width = dstW;
+    canvas.height = dstH;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas context を取得できませんでした');
 
-    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, dstW, dstH);
     onProgress(80);
 
     const mimeType = source instanceof File

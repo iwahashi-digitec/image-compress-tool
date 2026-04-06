@@ -24,9 +24,20 @@ export default function ResizePage() {
   const [processing, setProcessing] = useState<ProcessingFile[]>([]);
   const [results, setResults] = useState<ProcessedFile[]>([]);
 
+  // 出力サイズ（入力欄）
+  const [outputWidthStr, setOutputWidthStr] = useState('');
+  const [outputHeightStr, setOutputHeightStr] = useState('');
+
   const [crop, setCrop] = useState<Crop>({ unit: '%', x: 5, y: 5, width: 90, height: 90 });
   const firstImgUrl = useRef<string | null>(null);
   const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+
+  // 両方入力されたときだけアスペクト比を固定
+  const outputW = outputWidthStr !== '' ? Number(outputWidthStr) : null;
+  const outputH = outputHeightStr !== '' ? Number(outputHeightStr) : null;
+  const aspect = outputW && outputH && outputW > 0 && outputH > 0
+    ? outputW / outputH
+    : undefined;
 
   // ── ファイル選択 ──────────────────────────────────────────
   const handleFilesSelected = useCallback((newFiles: File[]) => {
@@ -37,7 +48,6 @@ export default function ResizePage() {
     setFiles(uploaded);
     setPhase('configure');
 
-    // 最初のファイルをトリミングプレビューに使う
     if (firstImgUrl.current) URL.revokeObjectURL(firstImgUrl.current);
     const url = URL.createObjectURL(newFiles[0]);
     firstImgUrl.current = url;
@@ -53,11 +63,10 @@ export default function ResizePage() {
   }, []);
 
   const handleAdd = useCallback((newFiles: File[]) => {
-    const uploaded: UploadedFile[] = newFiles.map((f) => ({
-      id: generateId(),
-      file: f,
-    }));
-    setFiles((prev) => [...prev, ...uploaded]);
+    setFiles((prev) => [
+      ...prev,
+      ...newFiles.map((f) => ({ id: generateId(), file: f })),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -65,6 +74,11 @@ export default function ResizePage() {
       if (firstImgUrl.current) URL.revokeObjectURL(firstImgUrl.current);
     };
   }, []);
+
+  // アスペクト比が変わったらクロップをリセット
+  useEffect(() => {
+    setCrop({ unit: '%', x: 5, y: 5, width: 90, height: 90 });
+  }, [aspect]);
 
   // ── 処理実行 ──────────────────────────────────────────────
   const handleProcess = useCallback(async () => {
@@ -79,6 +93,11 @@ export default function ResizePage() {
     setProcessing(initial);
 
     const cropPercent = toCropPercent(crop);
+    const outputSize =
+      outputW && outputH && outputW > 0 && outputH > 0
+        ? { width: outputW, height: outputH }
+        : undefined;
+
     const completed: ProcessedFile[] = [];
 
     for (const file of files) {
@@ -89,7 +108,7 @@ export default function ResizePage() {
       try {
         const resultBlob = await processImage(
           file.file,
-          { crop: cropPercent },
+          { crop: cropPercent, outputSize },
           (progress) => {
             setProcessing((prev) =>
               prev.map((p) => (p.id === file.id ? { ...p, progress } : p))
@@ -122,7 +141,7 @@ export default function ResizePage() {
 
     setResults(completed);
     setTimeout(() => setPhase('complete'), 600);
-  }, [files, crop]);
+  }, [files, crop, outputW, outputH]);
 
   const handleReset = useCallback(() => {
     setFiles([]);
@@ -150,12 +169,58 @@ export default function ResizePage() {
               onAdd={handleAdd}
             />
 
+            {/* 出力サイズ入力 */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-1">出力サイズ（px）</p>
+                <p className="text-xs text-gray-400">
+                  入力するとアスペクト比が固定され、縦横比に合った枠でトリミングできます
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1.5">幅</label>
+                  <input
+                    type="number"
+                    value={outputWidthStr}
+                    onChange={(e) => setOutputWidthStr(e.target.value)}
+                    placeholder="例: 1800"
+                    min={1}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                  />
+                </div>
+                <span className="mt-5 text-gray-400 text-sm">×</span>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1.5">高さ</label>
+                  <input
+                    type="number"
+                    value={outputHeightStr}
+                    onChange={(e) => setOutputHeightStr(e.target.value)}
+                    placeholder="例: 945"
+                    min={1}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+                  />
+                </div>
+                <div className="mt-5 text-xs text-gray-400 shrink-0">px</div>
+              </div>
+
+              {aspect && (
+                <p className="text-xs text-primary-600 bg-primary-50 rounded-lg px-3 py-1.5">
+                  アスペクト比 {outputW} : {outputH} に固定中 — 枠を動かして位置と大きさを調整してください
+                </p>
+              )}
+            </div>
+
+            {/* クロップエディタ */}
             {cropPreviewUrl && (
               <div className="bg-white border border-gray-200 rounded-2xl p-5">
                 <CropEditor
                   imageUrl={cropPreviewUrl}
                   crop={crop}
                   onChange={setCrop}
+                  aspect={aspect}
                   fileCount={files.length}
                 />
               </div>
@@ -166,7 +231,9 @@ export default function ResizePage() {
               className="w-full py-3 px-6 bg-primary-600 text-white rounded-xl
                 font-medium hover:bg-primary-700 transition-colors text-base"
             >
-              トリミングする
+              {outputW && outputH
+                ? `${outputW} × ${outputH} px でトリミングする`
+                : 'トリミングする'}
             </button>
           </div>
         )}
