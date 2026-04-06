@@ -33,8 +33,8 @@ const features = [
   {
     to: '/resize',
     icon: Crop,
-    title: 'リサイズ & トリミング',
-    description: '画像をピクセル指定でリサイズ、またはトリミングします',
+    title: 'トリミング',
+    description: '画像をドラッグまたはピクセル数値指定でトリミングします',
     color: 'text-orange-500',
     bg: 'bg-orange-50',
     border: 'hover:border-orange-300',
