@@ -10,15 +10,17 @@ interface Props {
   /** 出力幅÷高さのアスペクト比。指定時はクロップ枠がその比率に固定される */
   aspect?: number;
   fileCount: number;
+  onImageLoad?: (size: { w: number; h: number }) => void;
 }
 
-export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount }: Props) {
+export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount, onImageLoad }: Props) {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
       setNaturalSize({ w, h });
+      onImageLoad?.({ w, h });
 
       // アスペクト比が指定されている場合は中央にフィットするデフォルト枠を設定
       if (aspect) {
