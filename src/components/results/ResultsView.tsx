@@ -1,4 +1,4 @@
-import { Download, CheckCircle2, RotateCcw, FileText } from 'lucide-react';
+import { Download, CheckCircle2, RotateCcw, FileText, AlertCircle } from 'lucide-react';
 import type { ProcessedFile } from '../../types';
 import SizeComparison from './SizeComparison';
 import { downloadBlob, createZip } from '../../lib/zipUtils';
@@ -22,7 +22,7 @@ function ResultThumb({ file }: { file: ProcessedFile }) {
   }, [file]);
 
   if (src) {
-    return <img src={src} alt="" className="w-12 h-12 object-cover rounded-lg" />;
+    return <img src={src} alt="" onError={() => setSrc(null)} className="w-12 h-12 object-cover rounded-lg" />;
   }
   return (
     <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center">
@@ -34,9 +34,13 @@ function ResultThumb({ file }: { file: ProcessedFile }) {
 interface Props {
   files: ProcessedFile[];
   onReset: () => void;
+  /** 結果サイズのラベル（既定: 圧縮後） */
+  resultLabel?: string;
+  /** 処理に失敗したファイル（ファイル名とエラー内容） */
+  failures?: { name: string; message: string }[];
 }
 
-export default function ResultsView({ files, onReset }: Props) {
+export default function ResultsView({ files, onReset, resultLabel, failures = [] }: Props) {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadSingle = useCallback((f: ProcessedFile) => {
@@ -67,11 +71,30 @@ export default function ResultsView({ files, onReset }: Props) {
         {files.length > 1 && (
           <p className="text-sm text-gray-500 mt-1">
             {files.length}件のファイルで合計
-            <span className="font-bold text-success-600 mx-1">-{totalReduction}%</span>
-            削減
+            {totalReduction >= 0 ? (
+              <><span className="font-bold text-success-600 mx-1">-{totalReduction}%</span>削減</>
+            ) : (
+              <><span className="font-bold text-gray-600 mx-1">+{-totalReduction}%</span>増加</>
+            )}
           </p>
         )}
       </div>
+
+      {failures.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-red-700">
+            <AlertCircle size={16} />
+            {failures.length}件のファイルを変換できませんでした
+          </p>
+          <ul className="space-y-1">
+            {failures.map((f, i) => (
+              <li key={i} className="text-xs text-red-600">
+                <span className="font-medium">{f.name}</span>：{f.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="space-y-3">
         {files.map((f) => (
@@ -89,6 +112,7 @@ export default function ResultsView({ files, onReset }: Props) {
                   originalSize={f.originalSize}
                   resultSize={f.resultSize}
                   intermediateSize={f.intermediateSize}
+                  resultLabel={resultLabel}
                 />
               </div>
               <button

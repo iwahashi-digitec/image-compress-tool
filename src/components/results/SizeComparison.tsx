@@ -5,12 +5,14 @@ interface Props {
   originalSize: number;
   resultSize: number;
   intermediateSize?: number;
+  resultLabel?: string;
 }
 
 export default function SizeComparison({
   originalSize,
   resultSize,
   intermediateSize,
+  resultLabel,
 }: Props) {
   const totalReduction = getReductionPercent(originalSize, resultSize);
 
@@ -27,18 +29,18 @@ export default function SizeComparison({
         )}
 
         <ArrowRight size={14} className="text-gray-300" />
-        <SizeBadge label={intermediateSize !== undefined ? 'WebP' : '圧縮後'} size={resultSize} variant="result" />
+        <SizeBadge label={resultLabel ?? (intermediateSize !== undefined ? 'WebP' : '圧縮後')} size={resultSize} variant="result" />
       </div>
 
       <div className="flex items-center gap-2">
         <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
             className="h-full bg-success-500 rounded-full transition-all duration-500"
-            style={{ width: `${100 - totalReduction}%` }}
+            style={{ width: `${Math.min(100, 100 - totalReduction)}%` }}
           />
         </div>
         <span className={`text-sm font-bold ${totalReduction > 0 ? 'text-success-600' : 'text-gray-500'}`}>
-          {totalReduction > 0 ? `-${totalReduction}%` : '0%'}
+          {totalReduction > 0 ? `-${totalReduction}%` : totalReduction < 0 ? `+${-totalReduction}%` : '0%'}
         </span>
       </div>
     </div>

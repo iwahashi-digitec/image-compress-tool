@@ -29,6 +29,7 @@ function Thumbnail({ file }: { file: UploadedFile }) {
       <img
         src={src}
         alt={file.file.name}
+        onError={() => setSrc(null)}
         className="w-12 h-12 object-cover rounded-lg"
       />
     );
@@ -47,9 +48,12 @@ export default function FileList({ files, mode, onRemove, onAdd }: Props) {
   const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const accepted = acceptedMimeTypes[mode];
-      const valid = Array.from(e.target.files).filter((f) =>
-        accepted.includes(f.type)
-      );
+      const acceptedExts = acceptedExtensions[mode].split(',').map((x) => x.trim().toLowerCase());
+      const valid = Array.from(e.target.files).filter((f) => {
+        if (accepted.includes(f.type)) return true;
+        const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+        return acceptedExts.includes(ext);
+      });
       if (valid.length > 0) onAdd(valid);
     }
     if (inputRef.current) inputRef.current.value = '';

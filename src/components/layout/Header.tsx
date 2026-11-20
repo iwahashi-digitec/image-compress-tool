@@ -19,7 +19,7 @@ export default function Header() {
         )}
         <Link to="/" className="flex items-center gap-2 text-gray-800 font-bold">
           <ImageDown size={22} className="text-primary-600" />
-          <span className="text-base">画像・PDF圧縮ツール</span>
+          <span className="text-base">ファイル最適化ツール</span>
         </Link>
       </div>
     </header>

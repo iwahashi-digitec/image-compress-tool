@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import type { CropPercent } from '../../lib/resizeImage';
+import { formatFileSize } from '../../lib/fileUtils';
 
 interface Props {
   imageUrl: string;
@@ -11,9 +12,13 @@ interface Props {
   aspect?: number;
   fileCount: number;
   onImageLoad?: (size: { w: number; h: number }) => void;
+  /** 元ファイルサイズ（bytes）。クロップのみモードの推定サイズ表示に使用 */
+  originalFileSize?: number;
+  /** 出力サイズが別途指定されている場合は CropEditor 側での推定表示をスキップ */
+  hasExplicitOutputSize?: boolean;
 }
 
-export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount, onImageLoad }: Props) {
+export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount, onImageLoad, originalFileSize, hasExplicitOutputSize }: Props) {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
   const handleImageLoad = useCallback(
@@ -79,6 +84,16 @@ export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount
   const captureW = naturalSize ? Math.round((crop.width / 100) * naturalSize.w) : null;
   const captureH = naturalSize ? Math.round((crop.height / 100) * naturalSize.h) : null;
 
+  // クロップのみモード（出力サイズ未指定）での推定ファイルサイズ
+  const estimatedCropSize =
+    !hasExplicitOutputSize &&
+    originalFileSize != null &&
+    naturalSize &&
+    captureW != null && captureH != null &&
+    naturalSize.w > 0 && naturalSize.h > 0
+      ? Math.round(originalFileSize * (captureW * captureH) / (naturalSize.w * naturalSize.h))
+      : null;
+
   return (
     <div className="space-y-3">
       {/* インタラクティブ クロップ */}
@@ -102,9 +117,16 @@ export default function CropEditor({ imageUrl, crop, onChange, aspect, fileCount
       {/* キャプチャサイズ & 複数ファイル注記 */}
       <div className="flex items-center justify-between text-sm text-gray-500 px-1">
         <span className="text-xs text-gray-400">
-          {captureW != null && captureH != null
-            ? `元画像の選択範囲: ${captureW} × ${captureH} px`
-            : '画像を読み込んでいます...'}
+          {captureW != null && captureH != null ? (
+            <>
+              選択範囲: {captureW} × {captureH} px
+              {estimatedCropSize != null && (
+                <span className="ml-2 text-primary-600 font-medium">
+                  → 約 {formatFileSize(estimatedCropSize)}
+                </span>
+              )}
+            </>
+          ) : '画像を読み込んでいます...'}
         </span>
         {fileCount > 1 && (
           <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">

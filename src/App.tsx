@@ -4,6 +4,8 @@ import CompressPage from './routes/CompressPage';
 import WebpConvertPage from './routes/WebpConvertPage';
 import CompressAndWebpPage from './routes/CompressAndWebpPage';
 import ResizePage from './routes/ResizePage';
+import PsdConvertPage from './routes/PsdConvertPage';
+import ImageConvertPage from './routes/ImageConvertPage';
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
         <Route path="/webp-convert" element={<WebpConvertPage />} />
         <Route path="/compress-and-webp" element={<CompressAndWebpPage />} />
         <Route path="/resize" element={<ResizePage />} />
+        <Route path="/psd-convert" element={<PsdConvertPage />} />
+        <Route path="/image-convert" element={<ImageConvertPage />} />
       </Routes>
     </BrowserRouter>
   );

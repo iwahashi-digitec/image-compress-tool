@@ -16,7 +16,13 @@ export default function DropZone({ mode, onFilesSelected }: Props) {
   const validateFiles = useCallback(
     (files: FileList | File[]): File[] => {
       const accepted = acceptedMimeTypes[mode];
-      return Array.from(files).filter((f) => accepted.includes(f.type));
+      const extStr = acceptedExtensions[mode];
+      const acceptedExts = extStr.split(',').map((e) => e.trim().toLowerCase());
+      return Array.from(files).filter((f) => {
+        if (accepted.includes(f.type)) return true;
+        const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+        return acceptedExts.includes(ext);
+      });
     },
     [mode]
   );

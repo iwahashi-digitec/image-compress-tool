@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { Crop } from 'react-image-crop';
 import type { Phase, UploadedFile, ProcessingFile, ProcessedFile } from '../types';
 import type { CropFormat } from '../constants/cropFormats';
-import { generateId } from '../lib/fileUtils';
+import { generateId, formatFileSize } from '../lib/fileUtils';
 import { processImage } from '../lib/resizeImage';
 
 import PageLayout from '../components/layout/PageLayout';
@@ -76,6 +76,14 @@ export default function ResizePage() {
     cropMode === 'format'
       ? (selectedFormat ? { width: selectedFormat.width, height: selectedFormat.height } : undefined)
       : (outputW && outputH && outputW > 0 && outputH > 0 ? { width: outputW, height: outputH } : undefined);
+
+  // 出力サイズが指定されている場合の推定ファイルサイズ（1枚目の元サイズを基準に比例計算）
+  const estimatedOutputSize = useMemo(() => {
+    if (!outputSize || !imageNaturalSize || files.length === 0) return null;
+    const origPixels = imageNaturalSize.w * imageNaturalSize.h;
+    if (origPixels === 0) return null;
+    return Math.round(files[0].file.size * (outputSize.width * outputSize.height) / origPixels);
+  }, [outputSize, imageNaturalSize, files]);
 
   const handleToggleLock = useCallback(() => {
     if (aspectLocked) {
@@ -346,6 +354,12 @@ export default function ResizePage() {
                     比率 {outputW} : {outputH} に固定中 — 枠を動かして位置と大きさを調整してください
                   </p>
                 )}
+                {estimatedOutputSize != null && (
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5">
+                    出力ファイルサイズの目安: <span className="font-medium text-primary-600">約 {formatFileSize(estimatedOutputSize)}</span>
+                    {files.length > 1 && <span className="text-gray-400">（1枚目を基準に推定）</span>}
+                  </p>
+                )}
               </div>
             )}
 
@@ -357,6 +371,12 @@ export default function ResizePage() {
                   selectedId={selectedFormat?.id ?? null}
                   onSelect={handleFormatSelect}
                 />
+                {estimatedOutputSize != null && (
+                  <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-1.5">
+                    出力ファイルサイズの目安: <span className="font-medium text-primary-600">約 {formatFileSize(estimatedOutputSize)}</span>
+                    {files.length > 1 && <span className="text-gray-400">（1枚目を基準に推定）</span>}
+                  </p>
+                )}
               </div>
             )}
 
@@ -370,6 +390,8 @@ export default function ResizePage() {
                   aspect={aspect}
                   fileCount={files.length}
                   onImageLoad={setImageNaturalSize}
+                  originalFileSize={files[0]?.file.size}
+                  hasExplicitOutputSize={outputSize != null}
                 />
               </div>
             )}
