@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import type { Phase, UploadedFile, ProcessingFile, ProcessedFile } from '../types';
 import { generateId, changeExtension } from '../lib/fileUtils';
@@ -33,7 +34,9 @@ function loadScale(): number {
   return 2;
 }
 
-function loadFormat(): OutputFormat {
+function loadFormat(preset: string | null): OutputFormat {
+  // ?to=webp などで形式を指定して開ける（旧「WebP変換」「PSD変換」URLからの転送用）
+  if (preset && preset in outputFormatMap) return preset as OutputFormat;
   try {
     const saved = localStorage.getItem(FORMAT_KEY);
     if (saved && saved in outputFormatMap) return saved as OutputFormat;
@@ -46,7 +49,8 @@ function loadFormat(): OutputFormat {
 export default function ImageConvertPage() {
   const [phase, setPhase] = useState<Phase>('select');
   const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [format, setFormatState] = useState<OutputFormat>(loadFormat);
+  const [searchParams] = useSearchParams();
+  const [format, setFormatState] = useState<OutputFormat>(() => loadFormat(searchParams.get('to')));
   const [quality, setQuality] = usePersistedQuality('image-convert');
   const [vectorScale, setVectorScaleState] = useState<number>(loadScale);
   const [processing, setProcessing] = useState<ProcessingFile[]>([]);

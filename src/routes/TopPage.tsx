@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileDown, ImageIcon, Layers, Crop, FileImage, Repeat } from 'lucide-react';
+import { FileDown, Layers, Crop, Repeat } from 'lucide-react';
 import PageLayout from '../components/layout/PageLayout';
 
 const groups = [
@@ -14,24 +14,6 @@ const groups = [
         color: 'text-sky-500',
         bg: 'bg-sky-50',
         border: 'hover:border-sky-300',
-      },
-      {
-        to: '/psd-convert',
-        icon: FileImage,
-        title: 'PSDをJPG / PNGに変換',
-        description: 'Photoshopファイル（.psd）をJPGまたはPNGに書き出します',
-        color: 'text-rose-500',
-        bg: 'bg-rose-50',
-        border: 'hover:border-rose-300',
-      },
-      {
-        to: '/webp-convert',
-        icon: ImageIcon,
-        title: '画像をWebPに変換',
-        description: 'JPEG / PNG をWebP形式に変換して軽量化します',
-        color: 'text-emerald-500',
-        bg: 'bg-emerald-50',
-        border: 'hover:border-emerald-300',
       },
     ],
   },
